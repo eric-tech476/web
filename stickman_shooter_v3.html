@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>火柴人射击游戏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  #game-wrapper { width: 100%; height: 100%; position: relative; overflow: hidden; background: linear-gradient(180deg, #4FC3F7, #B3E5FC); }
+  #ground { position: absolute; bottom: 0; left: 0; right: 0; height: 90px; background: #81C784; border-top: 6px solid #66BB6A; z-index: 1; }
+  .cloud { position: absolute; background: rgba(255,255,255,0.6); border-radius: 50px; z-index: 0; }
+  .cloud::before, .cloud::after { content: ''; position: absolute; background: rgba(255,255,255,0.6); border-radius: 50%; }
+  #player { position: absolute; width: 20px; height: 50px; z-index: 5; }
+  #player .head { position: absolute; width: 14px; height: 14px; border: 2px solid #333; border-radius: 50%; top: 0; left: 3px; background: transparent; }
+  #player .body { position: absolute; width: 2px; height: 22px; background: #333; top: 14px; left: 9px; }
+  #player .arm-l { position: absolute; width: 12px; height: 2px; background: #333; top: 18px; left: -3px; transform: rotate(-30deg); transform-origin: right center; }
+  #player .arm-r { position: absolute; width: 14px; height: 2px; background: #333; top: 18px; left: 9px; transform: rotate(-20deg); transform-origin: left center; }
+  #player .leg-l { position: absolute; width: 2px; height: 14px; background: #333; top: 36px; left: 5px; transform: rotate(15deg); transform-origin: top center; }
+  #player .leg-r { position: absolute; width: 2px; height: 14px; background: #333; top: 36px; left: 13px; transform: rotate(-15deg); transform-origin: top center; }
+  #player .gun { position: absolute; width: 16px; height: 4px; background: #555; top: 16px; left: 12px; border-radius: 1px; }
+  #player.flip .head { left: 3px; }
+  #player.flip .body { left: 9px; }
+  #player.flip .arm-l { left: 11px; transform: rotate(30deg); transform-origin: left center; }
+  #player.flip .arm-r { left: -3px; transform: rotate(20deg); transform-origin: right center; }
+  #player.flip .gun { left: -8px; }
+  .enemy { position: absolute; width: 20px; height: 50px; z-index: 5; }
+  .enemy .head { position: absolute; width: 14px; height: 14px; border: 2px solid #D32F2F; border-radius: 50%; top: 0; left: 3px; }
+  .enemy .body { position: absolute; width: 2px; height: 22px; background: #D32F2F; top: 14px; left: 9px; }
+  .enemy .arm-l { position: absolute; width: 12px; height: 2px; background: #D32F2F; top: 18px; left: -3px; transform: rotate(-30deg); transform-origin: right center; }
+  .enemy .arm-r { position: absolute; width: 14px; height: 2px; background: #D32F2F; top: 18px; left: 9px; transform: rotate(-20deg); transform-origin: left center; }
+  .enemy .leg-l { position: absolute; width: 2px; height: 14px; background: #D32F2F; top: 36px; left: 5px; transform: rotate(15deg); transform-origin: top center; }
+  .enemy .leg-r { position: absolute; width: 2px; height: 14px; background: #D32F2F; top: 36px; left: 13px; transform: rotate(-15deg); transform-origin: top center; }
+  .enemy .hp-bar { position: absolute; top: -12px; left: -5px; width: 30px; height: 4px; background: rgba(0,0,0,0.3); border-radius: 2px; }
+  .enemy .hp-fill { height: 100%; background: #76FF03; border-radius: 2px; transition: width 0.1s; }
+  .enemy.flash .head { border-color: #fff !important; background: #fff !important; }
+  .enemy.flash .body, .enemy.flash .arm-l, .enemy.flash .arm-r, .enemy.flash .leg-l, .enemy.flash .leg-r { background: #fff !important; }
+  .bullet { position: absolute; width: 6px; height: 6px; border-radius: 50%; z-index: 4; box-shadow: 0 0 8px currentColor; }
+  .particle { position: absolute; border-radius: 50%; z-index: 6; pointer-events: none; }
+  .float-text { position: absolute; font-size: 14px; font-weight: bold; z-index: 7; pointer-events: none; font-family: sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  #hud { position: absolute; top: 10px; left: 10px; color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.4); font-size: 15px; font-weight: 700; pointer-events: none; z-index: 10; font-family: 'PingFang SC', sans-serif; }
+  #hud div { margin-bottom: 3px; }
+  #weapons { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 10; }
+  .wbtn { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #fff; background: rgba(255,255,255,0.25); color: #fff; font-size: 18px; cursor: pointer; transition: transform .1s, background .2s; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
+  .wbtn.active { background: rgba(255,255,255,0.55); transform: scale(1.1); }
+  .wbtn:active { transform: scale(0.92); background: rgba(255,255,255,0.45); }
+  #joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 130px; height: 130px; z-index: 10; }
+  #joystick-base { position: absolute; width: 110px; height: 110px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.15); top: 10px; left: 10px; }
+  #joystick-knob { position: absolute; width: 50px; height: 50px; border-radius: 50%; border: 2px solid #fff; background: rgba(255,255,255,0.40); top: 40px; left: 40px; transition: none; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; }
+  #joystick-knob.active { background: rgba(255,255,255,0.60); }
+  #btnShoot { position: absolute; bottom: 20px; right: 20px; width: 90px; height: 90px; border-radius: 50%; border: 2px solid #fff; background: rgba(255,82,82,0.45); color: #fff; font-size: 32px; cursor: pointer; transition: transform .1s, background .2s; display: flex; align-items: center; justify-content: center; touch-action: manipulation; z-index: 10; }
+  #btnShoot:active { transform: scale(0.92); background: rgba(255,82,82,0.65); }
+  #btnShoot.firing { background: rgba(255,82,82,0.75); transform: scale(0.95); }
+  #gameOver { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 20; color: #fff; text-align: center; font-family: 'PingFang SC', sans-serif; }
+  #gameOver h1 { font-size: 38px; font-weight: 900; text-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 10px; }
+  #gameOver p { font-size: 16px; margin-bottom: 20px; opacity: 0.9; }
+  #btnRestart { padding: 12px 32px; font-size: 17px; border-radius: 28px; border: none; background: linear-gradient(135deg, #FF5252, #D32F2F); color: #fff; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(211,47,47,0.4); transition: transform .1s; }
+  #btnRestart:active { transform: scale(0.95); }
+  .weapon-label { position: absolute; top: 56px; right: 10px; display: flex; gap: 6px; z-index: 10; pointer-events: none; }
+  .weapon-label span { width: 42px; text-align: center; font-size: 10px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.4); font-family: 'PingFang SC', sans-serif; }
+  #waveMsg { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 26px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 8px rgba(0,0,0,0.3); pointer-events: none; z-index: 15; font-family: 'PingFang SC', sans-serif; opacity: 0; transition: opacity 0.3s; }
+  #waveMsg.show { opacity: 1; }
+  #startScreen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, #4FC3F7, #B3E5FC); z-index: 30; color: #fff; text-align: center; font-family: 'PingFang SC', sans-serif; }
+  #startScreen h1 { font-size: 42px; font-weight: 900; text-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 30px; color: #fff; }
+  #startScreen .btn-start { padding: 14px 48px; font-size: 20px; border-radius: 32px; border: 2px solid #fff; background: rgba(255,255,255,0.25); color: #fff; font-weight: 700; cursor: pointer; margin: 8px 0; transition: transform .1s, background .2s; width: 220px; }
+  #startScreen .btn-start:active { transform: scale(0.95); background: rgba(255,255,255,0.45); }
+  #startScreen .btn-start:disabled { opacity: 0.4; cursor: not-allowed; }
+  #startScreen .no-save { font-size: 13px; opacity: 0.6; margin-top: 4px; }
+  #btnSettings { position: absolute; top: 10px; right: 200px; width: 38px; height: 38px; border-radius: 50%; border: 2px solid #fff; background: rgba(255,255,255,0.25); color: #fff; font-size: 20px; cursor: pointer; transition: transform .1s, background .2s; display: flex; align-items: center; justify-content: center; touch-action: manipulation; z-index: 10; }
+  #btnSettings:active { transform: scale(0.92); background: rgba(255,255,255,0.45); }
+  #settingsPanel { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); z-index: 25; color: #fff; text-align: center; font-family: 'PingFang SC', sans-serif; }
+  #settingsPanel h2 { font-size: 28px; font-weight: 900; margin-bottom: 20px; }
+  #settingsPanel .settings-row { margin: 10px 0; font-size: 16px; }
+  #settingsPanel .btn { padding: 10px 32px; font-size: 16px; border-radius: 24px; border: 2px solid #fff; background: rgba(255,255,255,0.25); color: #fff; font-weight: 700; cursor: pointer; margin: 6px; transition: transform .1s, background .2s; }
+  #settingsPanel .btn:active { transform: scale(0.95); background: rgba(255,255,255,0.45); }
+  #settingsPanel .btn-green { background: rgba(76,175,80,0.4); border-color: #4CAF50; }
+  #settingsPanel .btn-red { background: rgba(244,67,54,0.4); border-color: #F44336; }
+  #settingsPanel .save-info { font-size: 13px; opacity: 0.7; margin-top: 8px; }
+  #screenFlash { position: absolute; inset: 0; background: rgba(255,0,0,0.3); z-index: 12; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+  #screenFlash.active { opacity: 1; }
+  #cooldown-indicator { position: absolute; bottom: 120px; right: 20px; width: 90px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; z-index: 10; overflow: hidden; }
+  #cooldown-fill { height: 100%; background: #FFEB3B; border-radius: 2px; width: 0%; transition: width 0.05s linear; }
+  #shopPanel { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.85); z-index: 25; color: #fff; font-family: 'PingFang SC', sans-serif; overflow-y: auto; padding: 15px 10px 30px; }
+  #shopPanel h2 { font-size: 24px; font-weight: 900; margin-bottom: 6px; text-align: center; }
+  #shopPanel .shop-gold { font-size: 18px; color: #FFD700; margin-bottom: 12px; text-align: center; }
+  #shopPanel .shop-gold .gold-icon { font-size: 22px; }
+  #shopPanel .shop-section { width: 100%; max-width: 420px; margin-bottom: 14px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.05); }
+  #shopPanel .shop-section-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  #shopPanel .shop-section-title .section-icon { font-size: 20px; }
+  #shopPanel .shop-items { display: flex; flex-wrap: wrap; gap: 8px; }
+  #shopPanel .shop-item { flex: 1; min-width: 100px; max-width: 48%; border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; padding: 8px 6px; text-align: center; cursor: pointer; transition: transform .1s, background .2s, border-color .2s; position: relative; }
+  #shopPanel .shop-item:active { transform: scale(0.95); }
+  #shopPanel .shop-item .item-icon { font-size: 24px; margin-bottom: 4px; }
+  #shopPanel .shop-item .item-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  #shopPanel .shop-item .item-desc { font-size: 11px; opacity: 0.7; margin-bottom: 4px; }
+  #shopPanel .shop-item .item-cost { font-size: 13px; color: #FFD700; font-weight: 700; }
+  #shopPanel .shop-item .item-cost .coin { font-size: 11px; }
+  #shopPanel .shop-item.sold-out { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); cursor: not-allowed; opacity: 0.5; }
+  #shopPanel .shop-item.sold-out::after { content: '已售罄'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #FF5252; background: rgba(0,0,0,0.3); border-radius: 8px; }
+  #shopPanel .shop-item.cant-afford { border-color: rgba(255,82,82,0.3); }
+  #shopPanel .shop-item.can-afford { border-color: rgba(76,175,80,0.5); }
+  #shopPanel .shop-item.can-afford:hover { background: rgba(76,175,80,0.15); }
+  #btnNextWave { margin-top: 10px; padding: 12px 40px; font-size: 18px; border-radius: 28px; border: 2px solid #fff; background: rgba(76,175,80,0.4); color: #fff; font-weight: 700; cursor: pointer; transition: transform .1s; }
+  #btnNextWave:active { transform: scale(0.95); }
+  #shieldDisplay { position: absolute; top: 38px; left: 10px; color: #00E5FF; text-shadow: 1px 1px 3px rgba(0,0,0,0.4); font-size: 13px; font-weight: 700; pointer-events: none; z-index: 10; font-family: 'PingFang SC', sans-serif; display: none; }
+  #shieldDisplay.show { display: block; }
+  #goldDisplay { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); color: #FFD700; text-shadow: 1px 1px 3px rgba(0,0,0,0.4); font-size: 16px; font-weight: 700; pointer-events: none; z-index: 10; font-family: 'PingFang SC', sans-serif; }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <div id="ground"></div>
+  <div id="player">
+    <div class="head"></div><div class="body"></div><div class="arm-l"></div><div class="arm-r"></div><div class="leg-l"></div><div class="leg-r"></div><div class="gun"></div>
+  </div>
+  <div id="hud">
+    <div>关卡: <span id="levelDisplay">1</span></div>
+    <div>血量: <span id="hpDisplay">100</span></div>
+  </div>
+  <div id="shieldDisplay">护盾: <span id="shieldValue">0</span></div>
+  <div id="goldDisplay">💰 <span id="goldValue">0</span></div>
+  <div id="waveMsg">第 1 波敌人来袭!</div>
+  <div id="weapons">
+    <button data-w="pistol" class="wbtn active" title="手枪">🔫</button>
+    <button data-w="smg" class="wbtn" title="冲锋枪">🔫</button>
+    <button data-w="rifle" class="wbtn" title="步枪">🔫</button>
+    <button data-w="shotgun" class="wbtn" title="霰弹枪">🔫</button>
+  </div>
+  <div class="weapon-label"><span>手枪</span><span>冲锋枪</span><span>步枪</span><span>霰弹枪</span></div>
+  <button id="btnSettings">⚙️</button>
+  <div id="joystick-zone"><div id="joystick-base"></div><div id="joystick-knob">◀▶</div></div>
+  <button id="btnShoot">🔥</button>
+  <div id="cooldown-indicator"><div id="cooldown-fill"></div></div>
+  <div id="gameOver">
+    <h1>游戏结束</h1>
+    <p>你倒在了第 <span id="finalLevel">1</span> 关</p>
+    <button id="btnRestart">重新开始</button>
+  </div>
+  <div id="screenFlash"></div>
+  <div id="startScreen">
+    <h1>🔥 火柴人射击</h1>
+    <div id="totalGoldDisplay" style="font-size:16px;color:#FFD700;margin-bottom:10px;text-shadow:1px 1px 3px rgba(0,0,0,0.4);">🏆 历史总金币: <span id="totalGoldValue">0</span></div>
+    <button id="btnNewGame" class="btn-start">新游戏</button>
+    <button id="btnLoadGame" class="btn-start">继续游戏</button>
+    <div id="noSaveMsg" class="no-save" style="display:none;">暂无存档</div>
+  </div>
+  <div id="settingsPanel">
+    <h2>⚙️ 设置</h2>
+    <div class="settings-row"><button id="btnSaveGame" class="btn btn-green">💾 保存进度</button></div>
+    <div class="settings-row"><button id="btnClearSave" class="btn">🗑️ 清除存档</button></div>
+    <div class="settings-row"><button id="btnBackToMenu" class="btn btn-red">🏠 返回主菜单</button></div>
+    <div class="settings-row"><button id="btnResume" class="btn">▶️ 继续游戏</button></div>
+    <div id="saveStatus" class="save-info"></div>
+  </div>
+  <div id="shopPanel">
+    <h2>🛒 强化商店</h2>
+    <div class="shop-gold"><span class="gold-icon">💰</span> 持有金币: <span id="shopGoldValue">0</span></div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🔫</span> 枪械通用增益</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="bulletDmg" data-type="repeatable">
+          <div class="item-icon">💥</div><div class="item-name">子弹伤害+5</div>
+          <div class="item-desc">每颗子弹额外造成5点伤害</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">10</span></div>
+        </div>
+        <div class="shop-item" data-item="bulletPierce" data-type="once">
+          <div class="item-icon">🔀</div><div class="item-name">子弹穿透+1</div>
+          <div class="item-desc">每发子弹可穿透1个敌人</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">50</span></div>
+        </div>
+        <div class="shop-item" data-item="fireRate" data-type="repeatable">
+          <div class="item-icon">⚡</div><div class="item-name">攻速+10%</div>
+          <div class="item-desc">缩短10%开火冷却时间</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">10</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🧍</span> 角色本体增益</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="lifeSteal" data-type="repeatable">
+          <div class="item-icon">🩸</div><div class="item-name">伤害吸血+5%</div>
+          <div class="item-desc">造成伤害的5%转化为回血</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">20</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🔫</span> 手枪专属</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="pistolShield" data-type="once">
+          <div class="item-icon">🛡️</div><div class="item-name">手枪护盾</div>
+          <div class="item-desc">手枪命中获得伤害2%护盾</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">50</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🔫</span> 冲锋枪专属</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="smgExtra" data-type="once">
+          <div class="item-icon">💫</div><div class="item-name">额外子弹</div>
+          <div class="item-desc">冲锋枪额外自动射击</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">50</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🔫</span> 步枪专属</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="rifleCrit" data-type="once">
+          <div class="item-icon">💎</div><div class="item-name">暴击强化</div>
+          <div class="item-desc">步枪20%几率5倍伤害</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">50</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shop-section">
+      <div class="shop-section-title"><span class="section-icon">🔫</span> 霰弹枪专属</div>
+      <div class="shop-items">
+        <div class="shop-item" data-item="shotgunKnock" data-type="once">
+          <div class="item-icon">💨</div><div class="item-name">后坐力冲撞</div>
+          <div class="item-desc">开火后坐力击退敌人</div>
+          <div class="item-cost"><span class="coin">💰</span> <span class="cost-val">50</span></div>
+        </div>
+      </div>
+    </div>
+    <button id="btnNextWave">▶️ 下一波</button>
+  </div>
+</div>
+<script>
+(function(){
+  var wrapper = document.getElementById('game-wrapper');
+  var player = document.getElementById('player');
+  var ground = document.getElementById('ground');
+  var screenFlash = document.getElementById('screenFlash');
+  var cooldownFill = document.getElementById('cooldown-fill');
+  var shieldDisplay = document.getElementById('shieldDisplay');
+  var shieldValue = document.getElementById('shieldValue');
+  var goldDisplay = document.getElementById('goldValue');
+  var shopGoldValue = document.getElementById('shopGoldValue');
+  var W = 0, H = 0, groundY = 0;
+  function resize(){
+    W = wrapper.clientWidth;
+    H = wrapper.clientHeight;
+    groundY = H - 90;
+    ground.style.height = '90px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  var level = 1, hp = 100, running = true, gameStarted = false;
+  var weapon = 'pistol';
+  var weapons = {
+    pistol:  { dmg: 25, fireRate: 400, spread: 0.02, speed: 12, color: '#FFEB3B', count: 1, vibrate: 10 },
+    smg:     { dmg: 12, fireRate: 120, spread: 0.08, speed: 14, color: '#FF9800', count: 1, vibrate: 5 },
+    rifle:   { dmg: 40, fireRate: 500, spread: 0.01, speed: 18, color: '#00E676', count: 1, vibrate: 20 },
+    shotgun: { dmg: 15, fireRate: 700, spread: 0.15, speed: 10, color: '#E040FB', count: 6, vibrate: 30 }
+  };
+  var gold = 0;
+  var totalGoldEarned = 0;
+  var killStreak = 0;
+  var shield = 0;
+  var shopUpgrades = {
+    bulletDmg: { level: 0, baseCost: 10, costInc: 30 },
+    bulletPierce: { bought: false, baseCost: 50 },
+    fireRate: { level: 0, baseCost: 10, costInc: 25 },
+    lifeSteal: { level: 0, baseCost: 20, costInc: 30 },
+    pistolShield: { bought: false, baseCost: 50 },
+    smgExtra: { bought: false, baseCost: 50 },
+    rifleCrit: { bought: false, baseCost: 50 },
+    shotgunKnock: { bought: false, baseCost: 50 }
+  };
+  function getUpgradeCost(key){
+    var u = shopUpgrades[key];
+    if(u.bought !== undefined){ return u.bought ? Infinity : u.baseCost; }
+    return u.baseCost + u.level * u.costInc;
+  }
+  function getTotalBulletDmgBonus(){ return shopUpgrades.bulletDmg.level * 5; }
+  function getTotalLifeSteal(){ return shopUpgrades.lifeSteal.level * 0.05; }
+  function getTotalFireRateMult(){
+    var mult = 1;
+    for(var i=0;i<shopUpgrades.fireRate.level;i++){ mult = mult * 0.9; }
+    return mult;
+  }
+  function getBulletPierce(){ return shopUpgrades.bulletPierce.bought ? 1 : 0; }
+  var px = 100, py = 0, pvx = 0, pvy = 0, onGround = false, facing = 1;
+  var GRAVITY = 0.6, JUMP = -12, SPEED = 5, FRICTION = 0.8;
+  var bullets = [], enemies = [], particles = [], texts = [];
+  var lastShot = 0;
+  var keys = {};
+  var rand = function(a,b){ return Math.random()*(b-a)+a; };
+  var SAVE_KEY = 'stickman_shooter_save';
+  var joystick = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, dirX: 0 };
+  var joystickZone = document.getElementById('joystick-zone');
+  var joystickKnob = document.getElementById('joystick-knob');
+  var smgExtraBullets = [];
+  var smgExtraLastShot = 0;
+  var shotgunRecoil = { active: false, timer: 0, dir: 0 };
+  var playerInvincible = false;
+  for(var i=0;i<5;i++){
+    var c = document.createElement('div');
+    c.className = 'cloud';
+    c.style.width = (80 + Math.random()*60) + 'px';
+    c.style.height = (30 + Math.random()*20) + 'px';
+    c.style.top = (30 + Math.random()*150) + 'px';
+    c.style.left = (Math.random()*W) + 'px';
+    wrapper.appendChild(c);
+  }
+  var waveState = 'spawning';
+  var waveEnemyCount = 0, waveSpawned = 0;
+  var waveSpawnTimer = 0, waveSpawnInterval = 800;
+  var waveTransitionTimer = 0, waveTransitionDelay = 2000;
+  var waveMsgEl = document.getElementById('waveMsg');
+  function showWaveMsg(msg){
+    waveMsgEl.textContent = msg;
+    waveMsgEl.classList.add('show');
+    setTimeout(function(){ waveMsgEl.classList.remove('show'); }, 1500);
+  }
+  function calcEnemyHp(){ return 60; }
+  function calcEnemyCount(){ return 3 + Math.floor(level * 1.5); }
+  function calcEnemySpeed(){ return rand(1.2, 2.5); }
+  function startWave(){
+    waveState = 'spawning';
+    waveEnemyCount = calcEnemyCount();
+    waveSpawned = 0;
+    waveSpawnTimer = 0;
+    showWaveMsg('第 ' + level + ' 波敌人来袭! (' + waveEnemyCount + '个)');
+  }
+  function createEnemyDOM(){
+    var el = document.createElement('div');
+    el.className = 'enemy';
+    el.innerHTML = '<div class="head"></div><div class="body"></div><div class="arm-l"></div><div class="arm-r"></div><div class="leg-l"></div><div class="leg-r"></div><div class="hp-bar"><div class="hp-fill"></div></div>';
+    wrapper.appendChild(el);
+    return el;
+  }
+  function spawnEnemy(){
+    var side = Math.random() < 0.5 ? -1 : 1;
+    var enemyHp = calcEnemyHp();
+    var ex = side === -1 ? -30 : W + 30;
+    var e = {
+      x: ex, y: groundY - 50, w: 20, h: 50,
+      vx: -side * calcEnemySpeed(),
+      hp: enemyHp, maxHp: enemyHp,
+      flash: 0, side: side,
+      el: createEnemyDOM(),
+      flashTimer: null,
+      knocked: false,
+      knockVx: 0
+    };
+    e.el.style.left = e.x + 'px';
+    e.el.style.top = e.y + 'px';
+    if(side === -1) e.el.classList.add('flip');
+    enemies.push(e);
+    waveSpawned = waveSpawned + 1;
+  }
+  function createBullet(x, y, color, isExtra){
+    var el = document.createElement('div');
+    el.className = 'bullet';
+    if(isExtra){
+      el.style.width = '4px';
+      el.style.height = '4px';
+      el.style.left = (x-2) + 'px';
+      el.style.top = (y-2) + 'px';
+      el.style.background = '#00FFFF';
+      el.style.color = '#00FFFF';
+      el.style.boxShadow = '0 0 6px #00FFFF';
+    } else {
+      el.style.left = (x-3) + 'px';
+      el.style.top = (y-3) + 'px';
+      el.style.background = color;
+      el.style.color = color;
+    }
+    wrapper.appendChild(el);
+    return el;
+  }
+  function createParticle(x, y, color, size){
+    var el = document.createElement('div');
+    el.className = 'particle';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.background = color;
+    wrapper.appendChild(el);
+    return el;
+  }
+  function createFloatText(x, y, txt, color){
+    var el = document.createElement('div');
+    el.className = 'float-text';
+    el.textContent = txt;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    wrapper.appendChild(el);
+    return el;
+  }
+  function vibrate(ms){ if(navigator.vibrate) navigator.vibrate(ms); }
+  function flashScreen(){
+    screenFlash.classList.add('active');
+    setTimeout(function(){ screenFlash.classList.remove('active'); }, 150);
+  }
+  function updateGoldDisplay(){ goldDisplay.textContent = gold; shopGoldValue.textContent = gold; }
+  function updateTotalGoldDisplay(){ document.getElementById('totalGoldValue').textContent = totalGoldEarned; }
+  function updateShieldDisplay(){
+    if(shield > 0){ shieldDisplay.classList.add('show'); shieldValue.textContent = Math.floor(shield); }
+    else { shieldDisplay.classList.remove('show'); }
+  }
+  function getWeaponStats(wpnKey){
+    var base = weapons[wpnKey];
+    var dmgBonus = getTotalBulletDmgBonus();
+    var fireRateMult = getTotalFireRateMult();
+    return {
+      dmg: base.dmg + dmgBonus,
+      fireRate: Math.max(30, Math.round(base.fireRate * fireRateMult)),
+      spread: base.spread,
+      speed: base.speed,
+      color: base.color,
+      count: base.count,
+      vibrate: base.vibrate
+    };
+  }
+  function update(dt){
+    if(!running || !gameStarted) return;
+    if(dt > 50) dt = 50;
+    if(joystick.active){ pvx = joystick.dirX * SPEED; }
+    else { pvx = pvx * FRICTION; }
+    if(keys['ArrowLeft'] || keys['a']) pvx = -SPEED;
+    else if(keys['ArrowRight'] || keys['d']) pvx = SPEED;
+    pvy = pvy + GRAVITY;
+    px = px + pvx; py = py + pvy;
+    if(py + 50 >= groundY){ py = groundY - 50; pvy = 0; onGround = true; }
+    if(py < 0) { py = 0; pvy = 0; }
+    if(px < 20) px = 20; if(px > W - 20) px = W - 20;
+    player.style.left = px + 'px';
+    player.style.top = py + 'px';
+    if(waveState === 'spawning'){
+      waveSpawnTimer = waveSpawnTimer + dt;
+      if(waveSpawnTimer > waveSpawnInterval){
+        waveSpawnTimer = 0;
+        spawnEnemy();
+        if(waveSpawned >= waveEnemyCount) waveState = 'fighting';
+      }
+    } else if(waveState === 'fighting'){
+      if(enemies.length === 0){
+        waveState = 'cleared';
+        waveTransitionTimer = 0;
+        showWaveMsg('第 ' + level + ' 波 清除!');
+      }
+    } else if(waveState === 'cleared'){
+      waveTransitionTimer = waveTransitionTimer + dt;
+      if(waveTransitionTimer > waveTransitionDelay){
+        openShop();
+      }
+    }
+    var nearest = null, minDist = Infinity;
+    for(var i=0;i<enemies.length;i++){
+      var dx = enemies[i].x - px;
+      var dy = enemies[i].y - py;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      if(d < minDist){ minDist = d; nearest = enemies[i]; }
+    }
+    if(nearest){
+      facing = nearest.x > px ? 1 : -1;
+      if(facing === -1) player.classList.add('flip');
+      else player.classList.remove('flip');
+    }
+    var now = Date.now();
+    var wpn = getWeaponStats(weapon);
+    var cooldownProgress = Math.min(1, (now - lastShot) / wpn.fireRate);
+    cooldownFill.style.width = (cooldownProgress * 100) + '%';
+    cooldownFill.style.background = wpn.color;
+    if(shopUpgrades.smgExtra.bought && weapon === 'smg'){
+      if(now - smgExtraLastShot >= 100){
+        smgExtraLastShot = now;
+        var target = null;
+        var tMinDist = Infinity;
+        for(var i=0;i<enemies.length;i++){
+          var tdx = enemies[i].x - px;
+          var tdy = enemies[i].y - py;
+          var td = Math.sqrt(tdx*tdx + tdy*tdy);
+          if(td < tMinDist){ tMinDist = td; target = enemies[i]; }
+        }
+        if(target){
+          var ttx = target.x - px;
+          var tty = target.y - py - 20;
+          var tAngle = Math.atan2(tty, ttx);
+          var gunTipX = facing === 1 ? px + 28 : px - 8;
+          var gunTipY = py + 18;
+          var ebvx = Math.cos(tAngle) * 14;
+          var ebvy = Math.sin(tAngle) * 14;
+          var ebel = createBullet(gunTipX, gunTipY, '#00FFFF', true);
+          smgExtraBullets.push({
+            x: gunTipX, y: gunTipY,
+            vx: ebvx, vy: ebvy,
+            dmg: 10, color: '#00FFFF',
+            life: 120, el: ebel,
+            isExtra: true,
+            hitEnemies: []
+          });
+        }
+      }
+    }
+    for(var i=bullets.length-1;i>=0;i--){
+      var b = bullets[i];
+      b.x = b.x + b.vx; b.y = b.y + b.vy; b.life = b.life - 1;
+      b.el.style.left = (b.x-3) + 'px';
+      b.el.style.top = (b.y-3) + 'px';
+      if(b.x < -50 || b.x > W + 50 || b.y < -50 || b.y > H + 50 || b.life <= 0){
+        b.el.remove(); bullets.splice(i,1); continue;
+      }
+      var pierceLeft = getBulletPierce() + 1;
+      var hitAny = false;
+      for(var j=0;j<enemies.length;j++){
+        var e = enemies[j];
+        if(b.hitEnemies && b.hitEnemies.indexOf(e) >= 0) continue;
+        var ex1 = e.x;
+        var ex2 = e.x + e.w;
+        var ey1 = e.y;
+        var ey2 = e.y + e.h;
+        if(b.x >= ex1 && b.x <= ex2 && b.y >= ey1 && b.y <= ey2){
+          if(!b.hitEnemies) b.hitEnemies = [];
+          b.hitEnemies.push(e);
+          pierceLeft = pierceLeft - 1;
+          hitAny = true;
+          var actualDmg = b.dmg;
+          if(weapon === 'rifle' && shopUpgrades.rifleCrit.bought && Math.random() < 0.2){
+            actualDmg = actualDmg * 5;
+            var critText = createFloatText(b.x, b.y - 10, '暴击!', '#FFD700');
+            texts.push({ x: b.x, y: b.y - 10, vy: -1.5, life: 1, el: critText });
+          }
+          e.hp = e.hp - actualDmg;
+          if(weapon === 'pistol' && shopUpgrades.pistolShield.bought){
+            shield = shield + actualDmg * 0.02;
+            updateShieldDisplay();
+          }
+          var lifeSteal = getTotalLifeSteal();
+          if(lifeSteal > 0){
+            hp = Math.min(100 + shopUpgrades.lifeSteal.level * 5, hp + actualDmg * lifeSteal);
+            document.getElementById('hpDisplay').textContent = Math.floor(hp);
+          }
+          if(e.flashTimer) clearTimeout(e.flashTimer);
+          e.el.classList.add('flash');
+          e.flashTimer = setTimeout(function(el, enemyObj){
+            return function(){
+              if(enemyObj.el && enemyObj.el.parentNode){
+                el.classList.remove('flash');
+              }
+              enemyObj.flashTimer = null;
+            };
+          }(e.el, e), 100);
+          for(var k=0;k<4;k++){
+            var p = createParticle(b.x, b.y, b.color, rand(2,5));
+            particles.push({ x: b.x, y: b.y, vx: rand(-3,3), vy: rand(-4,-1), life: 1, el: p });
+          }
+          var ft = createFloatText(b.x, b.y, '-'+actualDmg, b.color);
+          texts.push({ x: b.x, y: b.y, vy: -1, life: 1, el: ft });
+          if(pierceLeft <= 0){
+            b.el.remove(); bullets.splice(i,1);
+          }
+          if(e.hp <= 0){
+            for(var k=0;k<20;k++){
+              var p = createParticle(e.x, e.y, '#FF5252', rand(2,5));
+              particles.push({ x: e.x, y: e.y, vx: rand(-3,3), vy: rand(-4,-1), life: 1, el: p });
+            }
+            var ft2 = createFloatText(e.x, e.y - 30, '击杀!', '#FF5252');
+            texts.push({ x: e.x, y: e.y - 30, vy: -1, life: 1, el: ft2 });
+            killStreak = killStreak + 1;
+            var streakBonus = killStreak;
+            gold = gold + streakBonus;
+            totalGoldEarned = totalGoldEarned + streakBonus;
+            updateGoldDisplay();
+            var coinText = createFloatText(e.x, e.y - 45, '+' + streakBonus + '💰', '#FFD700');
+            texts.push({ x: e.x, y: e.y - 45, vy: -1.2, life: 1, el: coinText });
+            if(e.flashTimer) clearTimeout(e.flashTimer);
+            e.el.remove(); enemies.splice(j,1);
+          } else {
+            var fill = e.el.querySelector('.hp-fill');
+            if(fill) fill.style.width = (e.hp/e.maxHp*100) + '%';
+          }
+          if(pierceLeft <= 0) break;
+        }
+      }
+    }
+    for(var i=smgExtraBullets.length-1;i>=0;i--){
+      var eb = smgExtraBullets[i];
+      eb.x = eb.x + eb.vx; eb.y = eb.y + eb.vy; eb.life = eb.life - 1;
+      eb.el.style.left = (eb.x-2) + 'px';
+      eb.el.style.top = (eb.y-2) + 'px';
+      if(eb.x < -50 || eb.x > W + 50 || eb.y < -50 || eb.y > H + 50 || eb.life <= 0){
+        eb.el.remove(); smgExtraBullets.splice(i,1); continue;
+      }
+      for(var j=0;j<enemies.length;j++){
+        var e = enemies[j];
+        if(eb.hitEnemies.indexOf(e) >= 0) continue;
+        var ex1 = e.x, ex2 = e.x + e.w;
+        var ey1 = e.y, ey2 = e.y + e.h;
+        if(eb.x >= ex1 && eb.x <= ex2 && eb.y >= ey1 && eb.y <= ey2){
+          eb.hitEnemies.push(e);
+          e.hp = e.hp - eb.dmg;
+          if(e.flashTimer) clearTimeout(e.flashTimer);
+          e.el.classList.add('flash');
+          e.flashTimer = setTimeout(function(el, eo){
+            return function(){ if(eo.el && eo.el.parentNode) el.classList.remove('flash'); eo.flashTimer = null; };
+          }(e.el, e), 100);
+          for(var k=0;k<3;k++){
+            var p = createParticle(eb.x, eb.y, '#00FFFF', rand(2,4));
+            particles.push({ x: eb.x, y: eb.y, vx: rand(-2,2), vy: rand(-3,-1), life: 1, el: p });
+          }
+          var eft = createFloatText(eb.x, eb.y, '-'+eb.dmg, '#00FFFF');
+          texts.push({ x: eb.x, y: eb.y, vy: -1, life: 1, el: eft });
+          eb.el.remove(); smgExtraBullets.splice(i,1);
+          if(e.hp <= 0){
+            for(var k=0;k<15;k++){
+              var p = createParticle(e.x, e.y, '#FF5252', rand(2,4));
+              particles.push({ x: e.x, y: e.y, vx: rand(-3,3), vy: rand(-4,-1), life: 1, el: p });
+            }
+            var ft2 = createFloatText(e.x, e.y - 30, '击杀!', '#FF5252');
+            texts.push({ x: e.x, y: e.y - 30, vy: -1, life: 1, el: ft2 });
+            killStreak = killStreak + 1;
+            var streakBonus = killStreak;
+            gold = gold + streakBonus;
+            totalGoldEarned = totalGoldEarned + streakBonus;
+            updateGoldDisplay();
+            var coinText = createFloatText(e.x, e.y - 45, '+' + streakBonus + '💰', '#FFD700');
+            texts.push({ x: e.x, y: e.y - 45, vy: -1.2, life: 1, el: coinText });
+            if(e.flashTimer) clearTimeout(e.flashTimer);
+            e.el.remove(); enemies.splice(j,1);
+          } else {
+            var fill = e.el.querySelector('.hp-fill');
+            if(fill) fill.style.width = (e.hp/e.maxHp*100) + '%';
+          }
+          break;
+        }
+      }
+    }
+    for(var i=enemies.length-1;i>=0;i--){
+      var e = enemies[i];
+      if(e.knocked){
+        e.x = e.x + e.knockVx;
+        e.el.style.left = e.x + 'px';
+        e.knockVx = e.knockVx * 0.92;
+        if(Math.abs(e.knockVx) < 0.5){
+          e.knocked = false;
+          e.knockVx = 0;
+        }
+        if(e.x < -150 || e.x > W + 150){
+          if(e.flashTimer) clearTimeout(e.flashTimer);
+          e.el.remove(); enemies.splice(i,1);
+        }
+        continue;
+      }
+      e.x = e.x + e.vx;
+      e.el.style.left = e.x + 'px';
+      if(e.flash > 0) e.flash = e.flash - 1;
+      var distX = Math.abs(e.x - px);
+      var distY = Math.abs(e.y - py);
+      if(playerInvincible && distX < 60 && distY < 60){
+        e.knocked = true;
+        e.knockVx = e.x > px ? 140 : -140;
+        continue;
+      }
+      if(distX < 25 && distY < 40){
+        var dmg = 10;
+        if(shield > 0){
+          if(shield >= dmg){ shield = shield - dmg; dmg = 0; }
+          else { dmg = dmg - shield; shield = 0; }
+          updateShieldDisplay();
+        }
+        hp = hp - dmg;
+        if(dmg > 0) flashScreen();
+        for(var k=0;k<10;k++){
+          var p = createParticle(px, py, '#FF1744', rand(2,5));
+          particles.push({ x: px, y: py, vx: rand(-3,3), vy: rand(-4,-1), life: 1, el: p });
+        }
+        killStreak = 0;
+        gold = gold + 1;
+        totalGoldEarned = totalGoldEarned + 1;
+        updateGoldDisplay();
+        var coinText = createFloatText(px, py - 30, '+1💰 (连杀中断)', '#FFD700');
+        texts.push({ x: px, y: py - 30, vy: -1.2, life: 1, el: coinText });
+        if(e.flashTimer) clearTimeout(e.flashTimer);
+        e.el.remove(); enemies.splice(i,1);
+        document.getElementById('hpDisplay').textContent = Math.max(0, Math.floor(hp));
+        if(hp <= 0){
+          running = false;
+          saveGame();
+          document.getElementById('finalLevel').textContent = level;
+          document.getElementById('gameOver').style.display = 'flex';
+        }
+      } else if(e.x < -150 || e.x > W + 150){
+        if(e.flashTimer) clearTimeout(e.flashTimer);
+        e.el.remove(); enemies.splice(i,1);
+      }
+    }
+    if(shotgunRecoil.active){
+      shotgunRecoil.timer = shotgunRecoil.timer - dt;
+      if(shotgunRecoil.timer <= 0){
+        shotgunRecoil.active = false;
+        playerInvincible = false;
+      }
+    }
+    for(var i=particles.length-1;i>=0;i--){
+      var p = particles[i];
+      p.x = p.x + p.vx; p.y = p.y + p.vy; p.vy = p.vy + 0.15;
+      p.life = p.life - 0.04;
+      p.el.style.left = p.x + 'px';
+      p.el.style.top = p.y + 'px';
+      p.el.style.opacity = p.life;
+      if(p.life <= 0){ p.el.remove(); particles.splice(i,1); }
+    }
+    for(var i=texts.length-1;i>=0;i--){
+      var t = texts[i];
+      t.y = t.y + t.vy; t.life = t.life - 0.02;
+      t.el.style.top = t.y + 'px';
+      t.el.style.opacity = t.life;
+      if(t.life <= 0){ t.el.remove(); texts.splice(i,1); }
+    }
+  }
+  var lastTime = performance.now();
+  function loop(now){
+    var dt = now - lastTime;
+    lastTime = now;
+    update(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  document.addEventListener('keydown', function(e){ keys[e.key] = true; });
+  document.addEventListener('keyup', function(e){ keys[e.key] = false; });
+  var joystickBase = document.getElementById('joystick-base');
+  var maxKnobDist = 30;
+  function getJoystickCenter(){
+    var rect = joystickBase.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  function handleJoystickStart(e){
+    if(e && e.preventDefault) e.preventDefault();
+    joystick.active = true;
+    joystickKnob.classList.add('active');
+    var center = getJoystickCenter();
+    joystick.startX = center.x;
+    joystick.startY = center.y;
+    handleJoystickMove(e);
+  }
+  function handleJoystickMove(e){
+    if(!joystick.active) return;
+    if(e && e.preventDefault) e.preventDefault();
+    var clientX, clientY;
+    if(e.touches && e.touches.length > 0){
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if(e.changedTouches && e.changedTouches.length > 0){
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    var dx = clientX - joystick.startX;
+    var dy = clientY - joystick.startY;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    var angle = Math.atan2(dy, dx);
+    var knobDist = Math.min(dist, maxKnobDist);
+    var knobX = Math.cos(angle) * knobDist;
+    var knobY = Math.sin(angle) * knobDist;
+    joystickKnob.style.transform = 'translate(' + knobX + 'px, ' + knobY + 'px)';
+    joystick.dirX = Math.cos(angle) * Math.min(dist / maxKnobDist, 1);
+  }
+  function handleJoystickEnd(e){
+    if(e && e.preventDefault) e.preventDefault();
+    joystick.active = false;
+    joystickKnob.classList.remove('active');
+    joystickKnob.style.transform = 'translate(0px, 0px)';
+    joystick.dirX = 0;
+  }
+  joystickZone.addEventListener('touchstart', handleJoystickStart, {passive:false});
+  joystickZone.addEventListener('touchmove', handleJoystickMove, {passive:false});
+  joystickZone.addEventListener('touchend', handleJoystickEnd, {passive:false});
+  joystickZone.addEventListener('touchcancel', handleJoystickEnd, {passive:false});
+  joystickZone.addEventListener('mousedown', handleJoystickStart);
+  document.addEventListener('mousemove', handleJoystickMove);
+  document.addEventListener('mouseup', handleJoystickEnd);
+  var btnShoot = document.getElementById('btnShoot');
+  var shootPressed = false;
+  function tryFire(){
+    var now = Date.now();
+    var wpn = getWeaponStats(weapon);
+    if(now - lastShot < wpn.fireRate) return;
+    lastShot = now;
+    var nearest = null, minDist = Infinity;
+    for(var i=0;i<enemies.length;i++){
+      var dx = enemies[i].x - px;
+      var dy = enemies[i].y - py;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      if(d < minDist){ minDist = d; nearest = enemies[i]; }
+    }
+    var tx = nearest ? nearest.x - px : facing * 100;
+    var ty = nearest ? nearest.y - py - 20 : -20;
+    var angle = Math.atan2(ty, tx);
+    var gunTipX = facing === 1 ? px + 28 : px - 8;
+    var gunTipY = py + 18;
+    for(var i=0;i<wpn.count;i++){
+      var spread = (Math.random()-0.5)*wpn.spread*2;
+      var bvx = Math.cos(angle+spread)*wpn.speed;
+      var bvy = Math.sin(angle+spread)*wpn.speed;
+      var bel = createBullet(gunTipX, gunTipY, wpn.color, false);
+      bullets.push({
+        x: gunTipX, y: gunTipY,
+        vx: bvx, vy: bvy,
+        dmg: wpn.dmg, color: wpn.color,
+        life: 120, el: bel,
+        hitEnemies: []
+      });
+    }
+    vibrate(wpn.vibrate);
+    if(weapon === 'shotgun' && shopUpgrades.shotgunKnock.bought){
+      shotgunRecoil.active = true;
+      shotgunRecoil.timer = 200;
+      shotgunRecoil.dir = facing === 1 ? -1 : 1;
+      playerInvincible = true;
+      var recoilDist = 80;
+      px = px + shotgunRecoil.dir * recoilDist;
+      if(px < 20) px = 20;
+      if(px > W - 20) px = W - 20;
+      player.style.left = px + 'px';
+    }
+    btnShoot.classList.add('firing');
+    setTimeout(function(){ btnShoot.classList.remove('firing'); }, 80);
+  }
+  function handleShootStart(e){
+    if(e && e.preventDefault) e.preventDefault();
+    shootPressed = true;
+    tryFire();
+  }
+  function handleShootEnd(e){
+    if(e && e.preventDefault) e.preventDefault();
+    shootPressed = false;
+  }
+  btnShoot.addEventListener('touchstart', handleShootStart, {passive:false});
+  btnShoot.addEventListener('touchend', handleShootEnd, {passive:false});
+  btnShoot.addEventListener('touchcancel', handleShootEnd, {passive:false});
+  btnShoot.addEventListener('mousedown', handleShootStart);
+  btnShoot.addEventListener('mouseup', handleShootEnd);
+  btnShoot.addEventListener('mouseleave', handleShootEnd);
+  var wbtns = document.querySelectorAll('.wbtn');
+  for(var i=0;i<wbtns.length;i++){
+    (function(btn){
+      btn.addEventListener('click', function(){
+        weapon = btn.dataset.w;
+        for(var j=0;j<wbtns.length;j++){
+          wbtns[j].classList.remove('active');
+          wbtns[j].style.background='rgba(255,255,255,0.25)';
+          wbtns[j].style.transform='scale(1)';
+        }
+        btn.classList.add('active');
+        btn.style.background='rgba(255,255,255,0.55)';
+        btn.style.transform='scale(1.1)';
+      });
+    })(wbtns[i]);
+  }
+  document.getElementById('btnRestart').addEventListener('click', function(){
+    for(var i=0;i<enemies.length;i++){
+      if(enemies[i].flashTimer) clearTimeout(enemies[i].flashTimer);
+      enemies[i].el.remove();
+    }
+    for(var i=0;i<bullets.length;i++) bullets[i].el.remove();
+    for(var i=0;i<smgExtraBullets.length;i++) smgExtraBullets[i].el.remove();
+    for(var i=0;i<particles.length;i++) particles[i].el.remove();
+    for(var i=0;i<texts.length;i++) texts[i].el.remove();
+    level = 1; hp = 100; running = true;
+    var inheritGold = Math.floor(totalGoldEarned / 100);
+    gold = inheritGold; shield = 0;
+    killStreak = 0;
+    px = 100; py = groundY - 50; pvx = 0; pvy = 0;
+    bullets = []; enemies = []; particles = []; texts = []; smgExtraBullets = [];
+    shopUpgrades.bulletDmg.level = 0;
+    shopUpgrades.bulletPierce.bought = false;
+    shopUpgrades.fireRate.level = 0;
+    shopUpgrades.lifeSteal.level = 0;
+    shopUpgrades.pistolShield.bought = false;
+    shopUpgrades.smgExtra.bought = false;
+    shopUpgrades.rifleCrit.bought = false;
+    shopUpgrades.shotgunKnock.bought = false;
+    shotgunRecoil = { active: false, timer: 0, dir: 0 };
+    playerInvincible = false;
+    updateGoldDisplay();
+    updateShieldDisplay();
+    startWave();
+    document.getElementById('levelDisplay').textContent = level;
+    document.getElementById('hpDisplay').textContent = hp;
+    document.getElementById('gameOver').style.display = 'none';
+    updateShopUI();
+  });
+  var shopPanel = document.getElementById('shopPanel');
+  var btnNextWave = document.getElementById('btnNextWave');
+  function openShop(){
+    running = false;
+    updateShopUI();
+    shopPanel.style.display = 'flex';
+  }
+  function closeShop(){
+    shopPanel.style.display = 'none';
+    level = level + 1;
+    document.getElementById('levelDisplay').textContent = level;
+    startWave();
+    running = true;
+  }
+  btnNextWave.addEventListener('click', closeShop);
+  function updateShopUI(){
+    var items = document.querySelectorAll('.shop-item');
+    for(var i=0;i<items.length;i++){
+      var item = items[i];
+      var key = item.dataset.item;
+      var cost = getUpgradeCost(key);
+      if(cost === Infinity){
+        item.classList.add('sold-out');
+        item.classList.remove('can-afford', 'cant-afford');
+        item.querySelector('.cost-val').textContent = '已售罄';
+      } else {
+        item.classList.remove('sold-out');
+        item.querySelector('.cost-val').textContent = cost;
+        if(gold >= cost){
+          item.classList.add('can-afford');
+          item.classList.remove('cant-afford');
+        } else {
+          item.classList.add('cant-afford');
+          item.classList.remove('can-afford');
+        }
+      }
+    }
+    updateGoldDisplay();
+  }
+  var shopItems = document.querySelectorAll('.shop-item');
+  for(var i=0;i<shopItems.length;i++){
+    (function(item){
+      item.addEventListener('click', function(){
+        if(item.classList.contains('sold-out')) return;
+        var key = item.dataset.item;
+        var cost = getUpgradeCost(key);
+        if(gold < cost) return;
+        gold = gold - cost;
+        if(key === 'bulletDmg'){
+          shopUpgrades.bulletDmg.level = shopUpgrades.bulletDmg.level + 1;
+        } else if(key === 'bulletPierce'){
+          shopUpgrades.bulletPierce.bought = true;
+        } else if(key === 'fireRate'){
+          shopUpgrades.fireRate.level = shopUpgrades.fireRate.level + 1;
+        } else if(key === 'lifeSteal'){
+          shopUpgrades.lifeSteal.level = shopUpgrades.lifeSteal.level + 1;
+        } else if(key === 'pistolShield'){
+          shopUpgrades.pistolShield.bought = true;
+        } else if(key === 'smgExtra'){
+          shopUpgrades.smgExtra.bought = true;
+        } else if(key === 'rifleCrit'){
+          shopUpgrades.rifleCrit.bought = true;
+        } else if(key === 'shotgunKnock'){
+          shopUpgrades.shotgunKnock.bought = true;
+        }
+        updateShopUI();
+      });
+    })(shopItems[i]);
+  }
+  var btnSettings = document.getElementById('btnSettings');
+  var settingsPanel = document.getElementById('settingsPanel');
+  var btnSaveGame = document.getElementById('btnSaveGame');
+  var btnBackToMenu = document.getElementById('btnBackToMenu');
+  var btnResume = document.getElementById('btnResume');
+  var saveStatus = document.getElementById('saveStatus');
+  var startScreen = document.getElementById('startScreen');
+  var btnNewGame = document.getElementById('btnNewGame');
+  var btnLoadGame = document.getElementById('btnLoadGame');
+  var noSaveMsg = document.getElementById('noSaveMsg');
+  // ===== 存档系统（兼容 localStorage 不可用环境）=====
+  var localStorageAvailable = false;
+  var memorySave = null; // 内存存档降级方案
+  (function checkStorage(){
+    try {
+      var testKey = '__stickman_test__';
+      localStorage.setItem(testKey, '1');
+      localStorage.removeItem(testKey);
+      localStorageAvailable = true;
+    } catch(e) {
+      localStorageAvailable = false;
+      console.log('localStorage 不可用，已启用内存存档（页面关闭后丢失）');
+    }
+  })();
+
+  function storageSet(key, value){
+    if(localStorageAvailable){
+      try { localStorage.setItem(key, value); return true; }
+      catch(e) { console.warn('localStorage 写入失败:', e); }
+    }
+    // 降级到内存存储
+    memorySave = value;
+    return true;
+  }
+
+  function storageGet(key){
+    if(localStorageAvailable){
+      try { return localStorage.getItem(key); }
+      catch(e) { console.warn('localStorage 读取失败:', e); }
+    }
+    // 降级到内存存储
+    return memorySave;
+  }
+
+  function storageRemove(key){
+    if(localStorageAvailable){
+      try { localStorage.removeItem(key); return true; }
+      catch(e) { console.warn('localStorage 删除失败:', e); }
+    }
+    memorySave = null;
+    return true;
+  }
+
+  function hasSave(){
+    var data = storageGet(SAVE_KEY);
+    return data !== null && data !== undefined;
+  }
+
+  function saveGame(){
+    var saveData = {
+      level: level,
+      hp: hp,
+      weapon: weapon,
+      px: px,
+      gold: gold,
+      shield: shield,
+      totalGoldEarned: totalGoldEarned,
+      upgrades: shopUpgrades,
+      timestamp: Date.now()
+    };
+    var success = storageSet(SAVE_KEY, JSON.stringify(saveData));
+    if(success){
+      saveStatus.textContent = '✅ 保存成功! 关卡' + level + ' | 金币' + gold + ' | 总金币' + totalGoldEarned;
+      if(!localStorageAvailable){
+        saveStatus.textContent += ' (内存存档，关闭页面后丢失)';
+      }
+    } else {
+      saveStatus.textContent = '❌ 保存失败';
+    }
+    setTimeout(function(){ saveStatus.textContent = ''; }, 3000);
+  }
+
+  function loadGame(){
+    var data = storageGet(SAVE_KEY);
+    if(!data) return false;
+    try {
+      var save = JSON.parse(data);
+      level = save.level || 1;
+      hp = save.hp || 100;
+      weapon = save.weapon || 'pistol';
+      px = save.px || 100;
+      gold = save.gold || 0;
+      totalGoldEarned = save.totalGoldEarned || 0;
+      shield = save.shield || 0;
+      if(save.upgrades){
+        shopUpgrades.bulletDmg.level = save.upgrades.bulletDmg.level || 0;
+        shopUpgrades.bulletPierce.bought = save.upgrades.bulletPierce.bought || false;
+        shopUpgrades.fireRate.level = save.upgrades.fireRate.level || 0;
+        shopUpgrades.lifeSteal.level = save.upgrades.lifeSteal.level || 0;
+        shopUpgrades.pistolShield.bought = save.upgrades.pistolShield.bought || false;
+        shopUpgrades.smgExtra.bought = save.upgrades.smgExtra.bought || false;
+        shopUpgrades.rifleCrit.bought = save.upgrades.rifleCrit.bought || false;
+        shopUpgrades.shotgunKnock.bought = save.upgrades.shotgunKnock.bought || false;
+      }
+      document.getElementById('levelDisplay').textContent = level;
+      document.getElementById('hpDisplay').textContent = Math.floor(hp);
+      updateGoldDisplay();
+      updateShieldDisplay();
+      for(var j=0;j<wbtns.length;j++){
+        wbtns[j].classList.remove('active');
+        wbtns[j].style.background='rgba(255,255,255,0.25)';
+        wbtns[j].style.transform='scale(1)';
+      }
+      var activeBtn = document.querySelector('.wbtn[data-w="' + weapon + '"]');
+      if(activeBtn){
+        activeBtn.classList.add('active');
+        activeBtn.style.background='rgba(255,255,255,0.55)';
+        activeBtn.style.transform='scale(1.1)';
+      }
+      return true;
+    } catch(e) {
+      console.warn('存档解析失败:', e);
+      return false;
+    }
+  }
+  function clearGame(){
+    for(var i=0;i<enemies.length;i++){
+      if(enemies[i].flashTimer) clearTimeout(enemies[i].flashTimer);
+      enemies[i].el.remove();
+    }
+    for(var i=0;i<bullets.length;i++) bullets[i].el.remove();
+    for(var i=0;i<smgExtraBullets.length;i++) smgExtraBullets[i].el.remove();
+    for(var i=0;i<particles.length;i++) particles[i].el.remove();
+    for(var i=0;i<texts.length;i++) texts[i].el.remove();
+    enemies = []; bullets = []; particles = []; texts = []; smgExtraBullets = [];
+  }
+  function startGame(newGame){
+    if(newGame){
+      level = 1; hp = 100; weapon = 'pistol';
+      px = 100; py = groundY - 50; pvx = 0; pvy = 0;
+      var inheritGold = Math.floor(totalGoldEarned / 100);
+      gold = inheritGold; shield = 0;
+      killStreak = 0;
+      shopUpgrades.bulletDmg.level = 0;
+      shopUpgrades.bulletPierce.bought = false;
+      shopUpgrades.fireRate.level = 0;
+      shopUpgrades.lifeSteal.level = 0;
+      shopUpgrades.pistolShield.bought = false;
+      shopUpgrades.smgExtra.bought = false;
+      shopUpgrades.rifleCrit.bought = false;
+      shopUpgrades.shotgunKnock.bought = false;
+      shotgunRecoil = { active: false, timer: 0, dir: 0 };
+      playerInvincible = false;
+      document.getElementById('levelDisplay').textContent = level;
+      document.getElementById('hpDisplay').textContent = hp;
+      updateGoldDisplay();
+      updateShieldDisplay();
+      for(var j=0;j<wbtns.length;j++){
+        wbtns[j].classList.remove('active');
+        wbtns[j].style.background='rgba(255,255,255,0.25)';
+        wbtns[j].style.transform='scale(1)';
+      }
+      var pistolBtn = document.querySelector('.wbtn[data-w="pistol"]');
+      if(pistolBtn){
+        pistolBtn.classList.add('active');
+        pistolBtn.style.background='rgba(255,255,255,0.55)';
+        pistolBtn.style.transform='scale(1.1)';
+      }
+    } else {
+      loadGame();
+    }
+    clearGame();
+    running = true;
+    gameStarted = true;
+    startScreen.style.display = 'none';
+    settingsPanel.style.display = 'none';
+    shopPanel.style.display = 'none';
+    document.getElementById('gameOver').style.display = 'none';
+    py = groundY - 50;
+    player.style.left = px + 'px';
+    player.style.top = py + 'px';
+    startWave();
+  }
+  if(!hasSave()){
+    btnLoadGame.disabled = true;
+    noSaveMsg.style.display = 'block';
+  }
+  updateTotalGoldDisplay();
+  btnNewGame.addEventListener('click', function(){ startGame(true); });
+  btnLoadGame.addEventListener('click', function(){ startGame(false); });
+  btnSettings.addEventListener('click', function(){
+    if(!gameStarted) return;
+    running = false;
+    settingsPanel.style.display = 'flex';
+    saveStatus.textContent = '';
+  });
+  btnSaveGame.addEventListener('click', function(){
+    saveGame();
+    // 无论 localStorage 是否可用，都更新UI状态
+    btnLoadGame.disabled = false;
+    noSaveMsg.style.display = 'none';
+  });
+  btnResume.addEventListener('click', function(){
+    settingsPanel.style.display = 'none';
+    running = true;
+  });
+  var btnClearSave = document.getElementById('btnClearSave');
+  btnClearSave.addEventListener('click', function(){
+    storageRemove(SAVE_KEY);
+    memorySave = null;
+    saveStatus.textContent = '🗑️ 存档已清除';
+    setTimeout(function(){ saveStatus.textContent = ''; }, 3000);
+  });
+  btnBackToMenu.addEventListener('click', function(){
+    settingsPanel.style.display = 'none';
+    startScreen.style.display = 'flex';
+    gameStarted = false;
+    running = false;
+    updateTotalGoldDisplay();
+    if(hasSave()){
+      btnLoadGame.disabled = false;
+      noSaveMsg.style.display = 'none';
+    } else {
+      btnLoadGame.disabled = true;
+      noSaveMsg.style.display = 'block';
+    }
+  });
+  py = groundY - 50;
+  player.style.left = px + 'px';
+  player.style.top = py + 'px';
+  updateGoldDisplay();
+})();
+</script>
+</body>
+</html>
